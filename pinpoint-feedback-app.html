@@ -466,7 +466,7 @@
       });
     }
 
-    function importFiles(fileList){
+    function importFiles(fileList, nameHint){
       var files = Array.prototype.slice.call(fileList).filter(function(f){return /^image\//.test(f.type);});
       if(!files.length) return;
       var firstNew = null;
@@ -475,7 +475,7 @@
           return compress(file).then(function(src){
             var id = uid();
             if(!firstNew) firstNew = id;
-            var base = (file.name || "Screen").replace(/\.[^.]+$/,"");
+            var base = (nameHint || file.name || "Screen").replace(/\.[^.]+$/,"");
             state.screens.push({ id:id, name: base || ("Screen " + (state.screens.length+1)), src:src, comments:[] });
           });
         });
@@ -797,6 +797,29 @@
         if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){
           importFiles(e.dataTransfer.files);
         }
+      });
+
+      // clipboard paste -> import image(s) as new screen(s)
+      document.addEventListener("paste", function(e){
+        if(state.mode === "review") return;
+        var items = (e.clipboardData && e.clipboardData.items) || [];
+        var imgs = [];
+        for(var i=0; i<items.length; i++){
+          if(items[i].kind === "file" && /^image\//.test(items[i].type)){
+            var f = items[i].getAsFile();
+            if(f) imgs.push(f);
+          }
+        }
+        if(imgs.length){
+          e.preventDefault();
+          importFiles(imgs, "Pasted screen");
+          return;
+        }
+        // no image on the clipboard
+        var el = e.target || document.activeElement;
+        var editable = el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT");
+        if(editable) return;            // let native paste into a comment happen
+        toast("Copy an image or screenshot first", true);
       });
 
       $("saveDesigner").addEventListener("click", function(){ save("review"); });
